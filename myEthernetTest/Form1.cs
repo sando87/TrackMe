@@ -12,6 +12,13 @@ namespace TrackMe
 {
     public partial class Form1 : Form
     {
+        private const string MSG_SUCCESS_NEWID      = "회원가입 성공";
+        private const string MSG_ALREADY_ID         = "이미 등록된 ID입니다";
+        private const string MSG_SUCCESS_LOGIN      = "로그인 성공";
+        private const string MSG_UNREGIST_ID        = "등록되지 않은 ID입니다";
+        private const string MSG_WRONG_PW           = "잘못된 비밀번호입니다";
+        private const string MSG_DIFF_PW            = "비밀번호가 서로 다릅니다"; 
+
         private const string IPADDR = "127.0.0.1";
         private const int PORTNUM = 7000;
         private ICDPacketMgr IcdMgr = null;
@@ -20,7 +27,6 @@ namespace TrackMe
         public Form1()
         {
             InitializeComponent();
-
         }
 
         private void InitServer()
@@ -40,27 +46,53 @@ namespace TrackMe
             switch((ICD.COMMAND)obj.id)
             {
                 case ICD.COMMAND.NewUser:
+                    OnRecv_NewUser(obj);
                     break;
                 case ICD.COMMAND.Login:
-                    break;
-                case ICD.COMMAND.Logout:
+                    OnRecv_Login(obj);
                     break;
                 default:
                     break;
             }
         }
 
-        private ICD.User NewIcd_User()
+        private void OnRecv_NewUser(ICD.HEADER obj)
         {
-            ICD.User obj = new ICD.User();
-            obj.id = (uint)ICD.COMMAND.NewUser;
-            obj.size = (uint)ICD.User.HeaderSize();
-            obj.sof = (uint)ICD.MAGIC.SOF;
-            obj.type = 123;
-            byte[] buf = ICD.HEADER.Serialize(obj);
-            NetworkMgr.GetInst().WriteToClient(clientID, buf);
-
-            return obj;
+            ICD.ERRORCODE curErr = (ICD.ERRORCODE)obj.error;
+            switch(curErr)
+            {
+                case ICD.ERRORCODE.NOERROR:
+                    MessageBox.Show(MSG_SUCCESS_NEWID);
+                    break;
+                case ICD.ERRORCODE.HaveID:
+                    MessageBox.Show(MSG_ALREADY_ID);
+                    break;
+                default:
+                    break;
+            }
+        }
+        private void OnRecv_Login(ICD.HEADER obj)
+        {
+            ICD.ERRORCODE curErr = (ICD.ERRORCODE)obj.error;
+            switch (curErr)
+            {
+                case ICD.ERRORCODE.NOERROR:
+                    MessageBox.Show(MSG_SUCCESS_LOGIN);
+                    {
+                        this.Visible = false;
+                        Home home = new Home();
+                        home.ShowDialog();
+                    }
+                    break;
+                case ICD.ERRORCODE.NoID:
+                    MessageBox.Show(MSG_UNREGIST_ID);
+                    break;
+                case ICD.ERRORCODE.WorngPW:
+                    MessageBox.Show(MSG_WRONG_PW);
+                    break;
+                default:
+                    break;
+            }
         }
 
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
@@ -83,11 +115,19 @@ namespace TrackMe
             if (checkBox1.Checked)
             {
                 //회원가입 요청
-                ICD.User obj = new ICD.User();
-                ICD.HEADER.HeadBuilder(obj, ICD.COMMAND.NewUser, ICD.TYPE.REQ);
-                obj.userID = textBox1.Text;
-                obj.userPW = textBox2.Text;
-                sendMsgToServer(obj);
+                if(textBox2.Text == textBox3.Text)
+                {
+                    ICD.User obj = new ICD.User();
+                    ICD.HEADER.HeadBuilder(obj, ICD.COMMAND.NewUser, ICD.TYPE.REQ);
+                    obj.userID = textBox1.Text;
+                    obj.userPW = textBox2.Text;
+                    sendMsgToServer(obj);
+                }
+                else
+                {
+                    MessageBox.Show(MSG_DIFF_PW);
+                }
+                
             }
             else
             {
